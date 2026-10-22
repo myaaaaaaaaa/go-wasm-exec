@@ -222,14 +222,10 @@ func RunHTMLInChrome(htmlContent string) int {
 		}
 	}
 
-	if wsURL == "" {
-		exitf("Error: Could not find WebSocket URL in chrome output\n")
-	}
-
 	portRe := regexp.MustCompile(`127\.0\.0\.1:(\d+)`)
 	portMatch := portRe.FindStringSubmatch(wsURL)
 	if len(portMatch) < 2 {
-		exitf("Error: Could not extract port from WebSocket URL\n")
+		exitf("Error: Could not extract port from WebSocket URL %q\n", wsURL)
 	}
 
 	port := portMatch[1]
