@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -26,6 +27,8 @@ func exitf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, format, args...)
 	os.Exit(1)
 }
+
+const exitSentinelPrefix = "__GO_WASM_EXIT__:"
 
 const htmlTemplate = `<!DOCTYPE html>
 <html>
@@ -48,17 +51,28 @@ const htmlTemplate = `<!DOCTYPE html>
 		const go = new Go();
 		go.argv = {{.ArgsJSON}};
 
+		const exitSentinelPrefix = "{{.ExitSentinelPrefix}}";
+		let exited = false;
+		const handleExit = (code) => {
+			if (exited) return;
+			exited = true;
+			console.log(exitSentinelPrefix + (code ?? 0));
+		};
+
 		// Map console.log to standard output and exit when process ends
 		go.exit = (code) => {
 			if (code !== 0) {
 				console.error("exit code:", code);
 			}
+			handleExit(code);
 		};
 
-		WebAssembly.instantiate(bytes.buffer, go.importObject).then((result) => {
-			return go.run(result.instance);
+		WebAssembly.instantiate(bytes.buffer, go.importObject).then(async (result) => {
+			await go.run(result.instance);
+			handleExit(0);
 		}).catch((err) => {
 			console.error(err);
+			handleExit(1);
 		});
 	</script>
 </body>
@@ -103,13 +117,15 @@ func BundleWasmToHTML(wasmFilePath string, wasmArgs []string) string {
 	t := template.Must(template.New("html").Parse(htmlTemplate))
 	var buf bytes.Buffer
 	err = t.Execute(&buf, struct {
-		WasmExec   string
-		WasmBase64 string
-		ArgsJSON   string
+		WasmExec           string
+		WasmBase64         string
+		ArgsJSON           string
+		ExitSentinelPrefix string
 	}{
-		WasmExec:   string(wasmExecBytes),
-		WasmBase64: wasmBase64,
-		ArgsJSON:   string(argsJSON),
+		WasmExec:           string(wasmExecBytes),
+		WasmBase64:         wasmBase64,
+		ArgsJSON:           string(argsJSON),
+		ExitSentinelPrefix: exitSentinelPrefix,
 	})
 	if err != nil {
 		exitf("Error generating HTML: %v\n", err)
@@ -121,7 +137,7 @@ func BundleWasmToHTML(wasmFilePath string, wasmArgs []string) string {
 // RunHTMLInChrome takes a self-contained HTML string, executes it in
 // headless Chrome, and pipes the console/websocket output to stdout.
 // If an error occurs, it logs to stderr and exits via exitf.
-func RunHTMLInChrome(htmlContent string) {
+func RunHTMLInChrome(htmlContent string) int {
 	tmpFile, err := os.CreateTemp("", "htmleval-*.html")
 	if err != nil {
 		exitf("Error creating temp file: %v\n", err)
@@ -270,8 +286,7 @@ func RunHTMLInChrome(htmlContent string) {
 		},
 	})
 
-	loadEventFired := false
-	var loadEventTime time.Time
+	exitCode := 1
 
 	for {
 		var v map[string]any
@@ -296,27 +311,29 @@ func RunHTMLInChrome(htmlContent string) {
 								}
 							}
 						}
-						fmt.Println(strings.Join(out, " "))
+						line := strings.Join(out, " ")
+						if after, ok0 := strings.CutPrefix(line, exitSentinelPrefix); ok0 {
+							codeStr := after
+							if c, err := strconv.Atoi(strings.TrimSpace(codeStr)); err == nil {
+								exitCode = c
+							}
+							return exitCode
+						}
+						fmt.Println(line)
 					}
 				}
-			} else if method == "Page.loadEventFired" {
-				loadEventFired = true
-				loadEventTime = time.Now()
 			}
 		}
-
-		if loadEventFired && time.Since(loadEventTime) > 100*time.Millisecond {
-			// To be safe, wait slightly after loadEventFired for any final synchronous or microtask logs
-			time.Sleep(100 * time.Millisecond)
-			break
-		}
 	}
+
+	return exitCode
 }
 
 // executeWasm is a helper to combine the bundling and execution phases.
 func executeWasm(wasmFile string, args []string) {
 	html := BundleWasmToHTML(wasmFile, args)
-	RunHTMLInChrome(html)
+	code := RunHTMLInChrome(html)
+	os.Exit(code)
 }
 
 func main() {
