@@ -7,8 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -140,6 +138,37 @@ func BundleWasmToHTML(wasmFilePath string, wasmArgs []string) string {
 	return buf.String()
 }
 
+// sendCDP sends a command over WebSocket and blocks until the response with matching id is received.
+func sendCDP(ctx context.Context, c *websocket.Conn, id int, method string, params any, result any) error {
+	req := map[string]any{
+		"id":     id,
+		"method": method,
+		"params": params,
+	}
+	if err := wsjson.Write(ctx, c, req); err != nil {
+		return err
+	}
+
+	for {
+		var resp struct {
+			ID     int             `json:"id"`
+			Error  any             `json:"error"`
+			Result json.RawMessage `json:"result"`
+		}
+		if err := wsjson.Read(ctx, c, &resp); err != nil {
+			return err
+		}
+		if resp.ID != id {
+			continue
+		}
+		if resp.Error != nil {
+			return fmt.Errorf("CDP error: %v", resp.Error)
+		}
+
+		return json.Unmarshal(resp.Result, result)
+	}
+}
+
 // RunHTMLInChrome takes a self-contained HTML string, executes it in
 // headless Chrome, and pipes the console/websocket output to stdout.
 // If an error occurs, it logs to stderr and exits via exitf.
@@ -222,64 +251,50 @@ func RunHTMLInChrome(htmlContent string) int {
 		}
 	}
 
-	portRe := regexp.MustCompile(`127\.0\.0\.1:(\d+)`)
-	portMatch := portRe.FindStringSubmatch(wsURL)
-	if len(portMatch) < 2 {
-		exitf("Error: Could not extract port from WebSocket URL %q\n", wsURL)
-	}
-
-	port := portMatch[1]
-
-	var pageWs string
-	for range 20 {
-		resp, err := http.Get("http://127.0.0.1:" + port + "/json/list")
-		if err == nil {
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			var targets []struct {
-				Type string `json:"type"`
-				URL  string `json:"webSocketDebuggerUrl"`
-			}
-			json.Unmarshal(body, &targets)
-			for _, t := range targets {
-				if t.Type == "page" && t.URL != "" {
-					pageWs = t.URL
-					break
-				}
-			}
-			if pageWs != "" {
-				break
-			}
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	if pageWs == "" {
-		exitf("Error: Could not find page target WebSocket URL\n")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
-	c, _, err := websocket.Dial(ctx, pageWs, nil)
+	c, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
-		exitf("Error dialing page ws: %v\n", err)
+		exitf("Error dialing browser ws: %v\n", err)
 	}
 	defer c.Close(websocket.StatusNormalClosure, "")
 
+	var createTarget struct {
+		TargetID string `json:"targetId"`
+	}
+	if err := sendCDP(ctx, c, 1, "Target.createTarget", map[string]any{"url": "about:blank"}, &createTarget); err != nil {
+		exitf("Error creating page target: %v\n", err)
+	}
+
+	var attachTarget struct {
+		SessionID string `json:"sessionId"`
+	}
+	if err := sendCDP(ctx, c, 2, "Target.attachToTarget", map[string]any{
+		"targetId": createTarget.TargetID,
+		"flatten":  true,
+	}, &attachTarget); err != nil {
+		exitf("Error attaching to page target: %v\n", err)
+	}
+
+	sessionID := attachTarget.SessionID
+
 	wsjson.Write(ctx, c, map[string]any{
-		"id":     1,
-		"method": "Runtime.enable",
+		"id":        3,
+		"sessionId": sessionID,
+		"method":    "Runtime.enable",
 	})
 	wsjson.Write(ctx, c, map[string]any{
-		"id":     2,
-		"method": "Page.enable",
+		"id":        4,
+		"sessionId": sessionID,
+		"method":    "Page.enable",
 	})
 
 	fileURL := "file://" + filepath.ToSlash(tmpFile.Name())
 	wsjson.Write(ctx, c, map[string]any{
-		"id":     3,
-		"method": "Page.navigate",
+		"id":        5,
+		"sessionId": sessionID,
+		"method":    "Page.navigate",
 		"params": map[string]any{
 			"url": fileURL,
 		},
@@ -287,8 +302,9 @@ func RunHTMLInChrome(htmlContent string) int {
 
 	for {
 		var msg struct {
-			Method string `json:"method"`
-			Params struct {
+			Method    string `json:"method"`
+			SessionID string `json:"sessionId"`
+			Params    struct {
 				Args []struct {
 					Type  string `json:"type"`
 					Value any    `json:"value"`
@@ -299,7 +315,7 @@ func RunHTMLInChrome(htmlContent string) int {
 		if err != nil {
 			exitf("Error reading from WebSocket: %v\n", err)
 		}
-		if msg.Method != "Runtime.consoleAPICalled" {
+		if msg.SessionID != sessionID || msg.Method != "Runtime.consoleAPICalled" {
 			continue
 		}
 
