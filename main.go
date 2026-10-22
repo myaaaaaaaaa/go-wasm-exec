@@ -216,9 +216,9 @@ func RunHTMLInChrome(htmlContent string) {
 
 	port := portMatch[1]
 
-	var targets []map[string]interface{}
+	var targets []map[string]any
 	var pageWs string
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		resp, err := http.Get("http://127.0.0.1:" + port + "/json/list")
 		if err == nil {
 			body, _ := io.ReadAll(resp.Body)
@@ -252,20 +252,20 @@ func RunHTMLInChrome(htmlContent string) {
 	}
 	defer c.Close(websocket.StatusNormalClosure, "")
 
-	wsjson.Write(ctx, c, map[string]interface{}{
+	wsjson.Write(ctx, c, map[string]any{
 		"id":     1,
 		"method": "Runtime.enable",
 	})
-	wsjson.Write(ctx, c, map[string]interface{}{
+	wsjson.Write(ctx, c, map[string]any{
 		"id":     2,
 		"method": "Page.enable",
 	})
 
 	fileURL := "file://" + filepath.ToSlash(tmpFile.Name())
-	wsjson.Write(ctx, c, map[string]interface{}{
+	wsjson.Write(ctx, c, map[string]any{
 		"id":     3,
 		"method": "Page.navigate",
-		"params": map[string]interface{}{
+		"params": map[string]any{
 			"url": fileURL,
 		},
 	})
@@ -274,7 +274,7 @@ func RunHTMLInChrome(htmlContent string) {
 	var loadEventTime time.Time
 
 	for {
-		var v map[string]interface{}
+		var v map[string]any
 		err = wsjson.Read(ctx, c, &v)
 		if err != nil {
 			break
@@ -282,11 +282,11 @@ func RunHTMLInChrome(htmlContent string) {
 
 		if method, ok := v["method"].(string); ok {
 			if method == "Runtime.consoleAPICalled" {
-				if params, ok := v["params"].(map[string]interface{}); ok {
-					if args, ok := params["args"].([]interface{}); ok {
+				if params, ok := v["params"].(map[string]any); ok {
+					if args, ok := params["args"].([]any); ok {
 						var out []string
 						for _, arg := range args {
-							if a, ok := arg.(map[string]interface{}); ok {
+							if a, ok := arg.(map[string]any); ok {
 								if val, ok := a["value"]; ok {
 									out = append(out, fmt.Sprintf("%v", val))
 								} else if t, ok := a["type"].(string); ok && t == "undefined" {
