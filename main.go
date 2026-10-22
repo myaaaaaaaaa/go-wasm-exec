@@ -230,20 +230,21 @@ func RunHTMLInChrome(htmlContent string) int {
 
 	port := portMatch[1]
 
-	var targets []map[string]any
 	var pageWs string
 	for range 20 {
 		resp, err := http.Get("http://127.0.0.1:" + port + "/json/list")
 		if err == nil {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
+			var targets []struct {
+				Type string `json:"type"`
+				URL  string `json:"webSocketDebuggerUrl"`
+			}
 			json.Unmarshal(body, &targets)
 			for _, t := range targets {
-				if t["type"] == "page" {
-					if ws, ok := t["webSocketDebuggerUrl"].(string); ok && ws != "" {
-						pageWs = ws
-						break
-					}
+				if t.Type == "page" && t.URL != "" {
+					pageWs = t.URL
+					break
 				}
 			}
 			if pageWs != "" {
@@ -284,47 +285,43 @@ func RunHTMLInChrome(htmlContent string) int {
 		},
 	})
 
-	exitCode := 1
-
 	for {
-		var v map[string]any
-		err = wsjson.Read(ctx, c, &v)
+		var msg struct {
+			Method string `json:"method"`
+			Params struct {
+				Args []struct {
+					Type  string `json:"type"`
+					Value any    `json:"value"`
+				} `json:"args"`
+			} `json:"params"`
+		}
+		err = wsjson.Read(ctx, c, &msg)
 		if err != nil {
-			break
+			exitf("Error reading from WebSocket: %v\n", err)
+		}
+		if msg.Method != "Runtime.consoleAPICalled" {
+			continue
 		}
 
-		if method, ok := v["method"].(string); ok {
-			if method == "Runtime.consoleAPICalled" {
-				if params, ok := v["params"].(map[string]any); ok {
-					if args, ok := params["args"].([]any); ok {
-						var out []string
-						for _, arg := range args {
-							if a, ok := arg.(map[string]any); ok {
-								if val, ok := a["value"]; ok {
-									out = append(out, fmt.Sprintf("%v", val))
-								} else if t, ok := a["type"].(string); ok && t == "undefined" {
-									out = append(out, "undefined")
-								} else {
-									out = append(out, fmt.Sprintf("%v", a))
-								}
-							}
-						}
-						line := strings.Join(out, " ")
-						if after, ok0 := strings.CutPrefix(line, exitSentinelPrefix); ok0 {
-							codeStr := after
-							if c, err := strconv.Atoi(strings.TrimSpace(codeStr)); err == nil {
-								exitCode = c
-							}
-							return exitCode
-						}
-						fmt.Println(line)
-					}
-				}
+		var out []string
+		for _, arg := range msg.Params.Args {
+			if arg.Value != nil {
+				out = append(out, fmt.Sprintf("%v", arg.Value))
+			} else if arg.Type == "undefined" {
+				out = append(out, "undefined")
 			}
 		}
-	}
 
-	return exitCode
+		line := strings.Join(out, " ")
+		if after, ok := strings.CutPrefix(line, exitSentinelPrefix); ok {
+			exitCode, err := strconv.Atoi(strings.TrimSpace(after))
+			if err != nil {
+				exitf("Error: Could not parse exit code from WASM: %v\n", line)
+			}
+			return exitCode
+		}
+		fmt.Println(line)
+	}
 }
 
 // executeWasm is a helper to combine the bundling and execution phases.
