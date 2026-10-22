@@ -11,26 +11,14 @@ import (
 
 func TestE2E(t *testing.T) {
 	tmpDir := t.TempDir()
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tmpDir, "go-wasm-exec"), "..")
+	// Force Windows .exe heresy on all platforms
+	execBin := filepath.Join(tmpDir, "go-wasm-exec.exe")
+
+	buildCmd := exec.Command("go", "build", "-o", execBin, "..")
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build go-wasm-exec: %v", err)
-	}
-
-	entries, err := os.ReadDir(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to read temp dir: %v", err)
-	}
-	var execBin string
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "go-wasm-exec") {
-			execBin = filepath.Join(tmpDir, entry.Name())
-			break
-		}
-	}
-	if execBin == "" {
-		t.Fatalf("Failed to find built go-wasm-exec in %s", tmpDir)
 	}
 
 	t.Run("Success", func(t *testing.T) {
