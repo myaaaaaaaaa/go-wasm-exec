@@ -192,17 +192,9 @@ func RunHTMLInChrome(htmlContent string) int {
 		"about:blank",
 	}
 
-	candidates := []string{
-		"chromium",
-		"google-chrome",
-		"chromium-browser",
-	}
-	chromeBin := candidates[0]
-	for _, bin := range candidates {
-		if _, err := exec.LookPath(bin); err == nil {
-			chromeBin = bin
-			break
-		}
+	chromeBin := FindChrome()
+	if chromeBin == "" {
+		exitf("Error: Chrome or Chromium executable not found\n")
 	}
 
 	cmd := exec.Command(chromeBin, args...)
