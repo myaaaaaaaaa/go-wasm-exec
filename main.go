@@ -95,15 +95,21 @@ func BundleWasmToHTML(wasmFilePath string, wasmArgs []string) string {
 		exitf("Error getting GOROOT: %v\n", err)
 	}
 
-	wasmExecPath := filepath.Join(string(bytes.TrimSpace(goroot)), "lib", "wasm", "wasm_exec.js")
-	wasmExecBytes, err := os.ReadFile(wasmExecPath)
-	if err != nil {
-		// Try older path if it's there
-		wasmExecPath = filepath.Join(string(bytes.TrimSpace(goroot)), "misc", "wasm", "wasm_exec.js")
-		wasmExecBytes, err = os.ReadFile(wasmExecPath)
-		if err != nil {
-			exitf("Error reading wasm_exec.js: %v\n", err)
+	gorootDir := string(bytes.TrimSpace(goroot))
+	candidates := []string{
+		filepath.Join(gorootDir, "lib", "wasm", "wasm_exec.js"),
+		filepath.Join(gorootDir, "misc", "wasm", "wasm_exec.js"),
+	}
+
+	var wasmExecBytes []byte
+	for _, path := range candidates {
+		if b, err := os.ReadFile(path); err == nil {
+			wasmExecBytes = b
+			break
 		}
+	}
+	if wasmExecBytes == nil {
+		exitf("Error reading wasm_exec.js\n")
 	}
 
 	// We pass ["js", ...] as go_js_wasm_exec traditionally does
@@ -186,12 +192,16 @@ func RunHTMLInChrome(htmlContent string) int {
 		"about:blank",
 	}
 
-	chromeBin := "google-chrome"
-	if _, err := exec.LookPath("google-chrome"); err != nil {
-		if _, err := exec.LookPath("chromium"); err == nil {
-			chromeBin = "chromium"
-		} else if _, err := exec.LookPath("chromium-browser"); err == nil {
-			chromeBin = "chromium-browser"
+	candidates := []string{
+		"chromium",
+		"google-chrome",
+		"chromium-browser",
+	}
+	chromeBin := candidates[0]
+	for _, bin := range candidates {
+		if _, err := exec.LookPath(bin); err == nil {
+			chromeBin = bin
+			break
 		}
 	}
 
