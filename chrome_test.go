@@ -15,3 +15,9 @@ func TestFindChrome(t *testing.T) {
 		t.Fatalf("FindChrome() returned %q which is not executable: %v", bin, err)
 	}
 }
+
+func TestChromeInstallInstructions(t *testing.T) {
+	if len(ChromeInstallInstructions) < 10 {
+		t.Fatal("ChromeInstallInstructions appears to be corrupt")
+	}
+}

@@ -218,7 +218,7 @@ func RunHTMLInChrome(htmlContent string) int {
 
 	chromeBin := FindChrome()
 	if chromeBin == "" {
-		exitf("Error: Chrome or Chromium executable not found\n%s", ChromeInstallInstructions)
+		exitf("Error: Chrome or Chromium executable not found\n\n%s", ChromeInstallInstructions)
 	}
 
 	cmd := exec.Command(chromeBin, args...)
