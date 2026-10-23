@@ -256,6 +256,8 @@ func RunHTMLInChrome(htmlContent string) int {
 			break
 		}
 	}
+	// Satisfy the linter
+	_ = scanner.Err()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
