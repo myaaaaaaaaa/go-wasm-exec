@@ -73,8 +73,8 @@ func TestE2E(t *testing.T) {
 		}
 
 		output := string(out)
-		if !strings.Contains(output, "DOM manipulated successfully") {
-			t.Errorf("Expected output to contain 'DOM manipulated successfully', got:\n%s", output)
+		if !strings.Contains(output, "<div>Hello from DOM!</div>") {
+			t.Errorf("Expected output to contain '<div>Hello from DOM!</div>', got:\n%s", output)
 		}
 	})
 }
