@@ -37,12 +37,12 @@ const htmlTemplate = `
 	<title>Go WASM</title>
 </head>
 <body>
+	<pre id="go-wasm-output"></pre>
 	<script>
-		const outputBuffer = [];
 		const origLog = console.log;
 		console.log = (...args) => {
 			origLog.apply(console, args);
-			outputBuffer.push(args.join(" "));
+			document.getElementById("go-wasm-output").textContent += args.join(" ") + "\n";
 		};
 
 		{{.WasmExec}}
@@ -60,10 +60,6 @@ const htmlTemplate = `
 			if (exited) return;
 			console.log(exitSentinelPrefix + (code ?? 0));
 			exited = true;
-
-			const pre = document.createElement("pre");
-			pre.textContent = outputBuffer.join("\n");
-			document.body.appendChild(pre);
 		};
 
 		// Map console.log to standard output and exit when process ends
