@@ -68,13 +68,14 @@ go.exit = (code) => {
 	handleExit(code);
 };
 
-WebAssembly.instantiate(bytes.buffer, go.importObject).then(async (result) => {
+try {
+	const result = await WebAssembly.instantiate(bytes.buffer, go.importObject);
 	await go.run(result.instance);
 	handleExit(0);
-}).catch((err) => {
+} catch (err) {
 	console.error(err);
 	handleExit(1);
-});
+}
 
 `
 
@@ -133,7 +134,7 @@ func BundleWasmToHTML(wasmFilePath string, wasmArgs []string) string {
 	}
 
 	goscriptRegex := regexp.MustCompile(`<goscript.*?>`)
-	scriptTag := "<script>" + buf.String() + "</script>"
+	scriptTag := "<script type=\"module\">" + buf.String() + "</script>"
 	return goscriptRegex.ReplaceAllLiteralString(htmlTemplate, scriptTag)
 }
 
