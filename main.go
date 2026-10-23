@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -28,62 +29,52 @@ func exitf(format string, args ...any) {
 
 const exitSentinelPrefix = "__GO_WASM_EXIT__:"
 
-const htmlTemplate = `
-<!DOCTYPE html>
+//go:embed default.html
+var htmlTemplate string
 
-<html>
-<head>
-	<meta charset="utf-8" />
-	<title>Go WASM</title>
-</head>
-<body>
-	<script>
-		const outputBuffer = [];
-		const origLog = console.log;
-		console.log = (...args) => {
-			origLog.apply(console, args);
-			outputBuffer.push(args.join(" "));
-		};
+const jsTemplate = `
+const outputBuffer = [];
+const origLog = console.log;
+console.log = (...args) => {
+	origLog.apply(console, args);
+	outputBuffer.push(args.join(" "));
+};
 
-		{{.WasmExec}}
-	</script>
-	<script>
-		const wasmBase64 = "{{.WasmBase64}}";
-		const bytes = Uint8Array.fromBase64(wasmBase64);
+{{.WasmExec}}
 
-		const go = new Go();
-		go.argv = {{.ArgsJSON}};
+const wasmBase64 = "{{.WasmBase64}}";
+const bytes = Uint8Array.fromBase64(wasmBase64);
 
-		const exitSentinelPrefix = "{{.ExitSentinelPrefix}}";
-		let exited = false;
-		const handleExit = (code) => {
-			if (exited) return;
-			console.log(exitSentinelPrefix + (code ?? 0));
-			exited = true;
+const go = new Go();
+go.argv = {{.ArgsJSON}};
 
-			const pre = document.createElement("pre");
-			pre.textContent = outputBuffer.join("\n");
-			document.body.appendChild(pre);
-		};
+const exitSentinelPrefix = "{{.ExitSentinelPrefix}}";
+let exited = false;
+const handleExit = (code) => {
+	if (exited) return;
+	console.log(exitSentinelPrefix + (code ?? 0));
+	exited = true;
 
-		// Map console.log to standard output and exit when process ends
-		go.exit = (code) => {
-			if (code !== 0) {
-				console.error("exit code:", code);
-			}
-			handleExit(code);
-		};
+	const pre = document.createElement("pre");
+	pre.textContent = outputBuffer.join("\n");
+	document.body.appendChild(pre);
+};
 
-		WebAssembly.instantiate(bytes.buffer, go.importObject).then(async (result) => {
-			await go.run(result.instance);
-			handleExit(0);
-		}).catch((err) => {
-			console.error(err);
-			handleExit(1);
-		});
-	</script>
-</body>
-</html>
+// Map console.log to standard output and exit when process ends
+go.exit = (code) => {
+	if (code !== 0) {
+		console.error("exit code:", code);
+	}
+	handleExit(code);
+};
+
+WebAssembly.instantiate(bytes.buffer, go.importObject).then(async (result) => {
+	await go.run(result.instance);
+	handleExit(0);
+}).catch((err) => {
+	console.error(err);
+	handleExit(1);
+});
 
 `
 
@@ -129,7 +120,7 @@ func BundleWasmToHTML(wasmFilePath string, wasmArgs []string) string {
 		exitf("Error marshaling args: %v\n", err)
 	}
 
-	t := template.Must(template.New("html").Parse(htmlTemplate))
+	t := template.Must(template.New("js").Parse(jsTemplate))
 	var buf bytes.Buffer
 	err = t.Execute(&buf, map[string]string{
 		"WasmExec":           string(wasmExecBytes),
@@ -138,10 +129,12 @@ func BundleWasmToHTML(wasmFilePath string, wasmArgs []string) string {
 		"ExitSentinelPrefix": exitSentinelPrefix,
 	})
 	if err != nil {
-		exitf("Error generating HTML: %v\n", err)
+		exitf("Error generating JavaScript: %v\n", err)
 	}
 
-	return buf.String()
+	goscriptRegex := regexp.MustCompile(`<goscript.*?>`)
+	scriptTag := "<script>" + buf.String() + "</script>"
+	return goscriptRegex.ReplaceAllLiteralString(htmlTemplate, scriptTag)
 }
 
 // sendCDP sends a command over WebSocket and blocks until the response with matching id is received.

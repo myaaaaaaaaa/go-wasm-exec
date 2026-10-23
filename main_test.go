@@ -10,22 +10,30 @@ import (
 	"testing"
 )
 
-var scriptTagRegex = regexp.MustCompile(`(?s)<script.*?</script.*?>`)
-
 func checkBundleWasmToHTML(t *testing.T, wasmFilePath string, wasmArgs []string) string {
 	t.Helper()
 	html := BundleWasmToHTML(wasmFilePath, wasmArgs)
+	if html == "" {
+		t.Fatal("BundleWasmToHTML() returned empty HTML string")
+	}
+	if strings.Contains(html, "<goscript") {
+		t.Fatalf("expected <goscript /> tag to be replaced in bundled HTML")
+	}
 
-	strippedHTML := scriptTagRegex.ReplaceAllString(html, "")
-
-	decoder := xml.NewDecoder(strings.NewReader(strippedHTML))
-	for {
-		_, err := decoder.Token()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			t.Fatalf("BundleWasmToHTML() produced invalid XML/XHTML: %v", err)
+	{
+		// HTML parses the inside of <script> tags differently than a generic XML parser.
+		// We need to strip it out for XML validation.
+		scriptTagRegex := regexp.MustCompile(`(?s)<script.*?</script.*?>`)
+		strippedHTML := scriptTagRegex.ReplaceAllString(html, "")
+		decoder := xml.NewDecoder(strings.NewReader(strippedHTML))
+		for {
+			_, err := decoder.Token()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatalf("BundleWasmToHTML() produced invalid XML/XHTML: %v", err)
+			}
 		}
 	}
 
@@ -41,10 +49,6 @@ func TestBundleWasmToHTML(t *testing.T) {
 
 	t.Run("without args", func(t *testing.T) {
 		html := checkBundleWasmToHTML(t, wasmFile, nil)
-		if html == "" {
-			t.Fatal("BundleWasmToHTML() returned empty HTML string")
-		}
-
 		if !strings.Contains(html, "test.wasm") {
 			t.Fatalf("expected bundled HTML to contain filename 'test.wasm'")
 		}
@@ -53,9 +57,6 @@ func TestBundleWasmToHTML(t *testing.T) {
 	t.Run("with args", func(t *testing.T) {
 		args := []string{"--test-flag", "value"}
 		html := checkBundleWasmToHTML(t, wasmFile, args)
-		if html == "" {
-			t.Fatal("BundleWasmToHTML() returned empty HTML string")
-		}
 		for _, arg := range args {
 			if !strings.Contains(html, arg) {
 				t.Fatalf("expected bundled HTML to contain argument %q", arg)
