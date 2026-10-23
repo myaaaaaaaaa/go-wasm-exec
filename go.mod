@@ -1,4 +1,4 @@
-module go-wasm-exec
+module github.com/myaaaaaaaaa/go-wasm-exec
 
 go 1.24.3
 
