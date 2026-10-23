@@ -40,11 +40,7 @@ const htmlTemplate = `<!DOCTYPE html>
 	</script>
 	<script>
 		const wasmBase64 = "{{.WasmBase64}}";
-		const binaryString = atob(wasmBase64);
-		const bytes = new Uint8Array(binaryString.length);
-		for (let i = 0; i < binaryString.length; i++) {
-			bytes[i] = binaryString.charCodeAt(i);
-		}
+		const bytes = Uint8Array.fromBase64(wasmBase64);
 
 		const go = new Go();
 		go.argv = {{.ArgsJSON}};
@@ -120,16 +116,11 @@ func BundleWasmToHTML(wasmFilePath string, wasmArgs []string) string {
 
 	t := template.Must(template.New("html").Parse(htmlTemplate))
 	var buf bytes.Buffer
-	err = t.Execute(&buf, struct {
-		WasmExec           string
-		WasmBase64         string
-		ArgsJSON           string
-		ExitSentinelPrefix string
-	}{
-		WasmExec:           string(wasmExecBytes),
-		WasmBase64:         wasmBase64,
-		ArgsJSON:           string(argsJSON),
-		ExitSentinelPrefix: exitSentinelPrefix,
+	err = t.Execute(&buf, map[string]string{
+		"WasmExec":           string(wasmExecBytes),
+		"WasmBase64":         wasmBase64,
+		"ArgsJSON":           string(argsJSON),
+		"ExitSentinelPrefix": exitSentinelPrefix,
 	})
 	if err != nil {
 		exitf("Error generating HTML: %v\n", err)
