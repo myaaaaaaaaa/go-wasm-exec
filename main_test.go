@@ -1,11 +1,36 @@
 package main
 
 import (
+	"encoding/xml"
+	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
+
+var scriptTagRegex = regexp.MustCompile(`(?s)<script.*?</script.*?>`)
+
+func checkBundleWasmToHTML(t *testing.T, wasmFilePath string, wasmArgs []string) string {
+	t.Helper()
+	html := BundleWasmToHTML(wasmFilePath, wasmArgs)
+
+	strippedHTML := scriptTagRegex.ReplaceAllString(html, "")
+
+	decoder := xml.NewDecoder(strings.NewReader(strippedHTML))
+	for {
+		_, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("BundleWasmToHTML() produced invalid XML/XHTML: %v", err)
+		}
+	}
+
+	return html
+}
 
 func TestBundleWasmToHTML(t *testing.T) {
 	dummyContent := []byte("\x00asm\x01\x00\x00\x00")
@@ -15,7 +40,7 @@ func TestBundleWasmToHTML(t *testing.T) {
 	}
 
 	t.Run("without args", func(t *testing.T) {
-		html := BundleWasmToHTML(wasmFile, nil)
+		html := checkBundleWasmToHTML(t, wasmFile, nil)
 		if html == "" {
 			t.Fatal("BundleWasmToHTML() returned empty HTML string")
 		}
@@ -27,7 +52,7 @@ func TestBundleWasmToHTML(t *testing.T) {
 
 	t.Run("with args", func(t *testing.T) {
 		args := []string{"--test-flag", "value"}
-		html := BundleWasmToHTML(wasmFile, args)
+		html := checkBundleWasmToHTML(t, wasmFile, args)
 		if html == "" {
 			t.Fatal("BundleWasmToHTML() returned empty HTML string")
 		}

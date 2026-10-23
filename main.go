@@ -28,10 +28,12 @@ func exitf(format string, args ...any) {
 
 const exitSentinelPrefix = "__GO_WASM_EXIT__:"
 
-const htmlTemplate = `<!DOCTYPE html>
+const htmlTemplate = `
+<!DOCTYPE html>
+
 <html>
 <head>
-	<meta charset="utf-8">
+	<meta charset="utf-8" />
 	<title>Go WASM</title>
 </head>
 <body>
@@ -70,7 +72,9 @@ const htmlTemplate = `<!DOCTYPE html>
 		});
 	</script>
 </body>
-</html>`
+</html>
+
+`
 
 // BundleWasmToHTML takes a path to a WASM file and any runtime arguments,
 // generating a self-contained HTML string that runs the WASM bundle.
