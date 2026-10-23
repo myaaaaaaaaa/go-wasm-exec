@@ -63,4 +63,18 @@ func TestE2E(t *testing.T) {
 			t.Errorf("Expected output to contain 'Exiting with failure', got:\n%s", out)
 		}
 	})
+
+	t.Run("DOM", func(t *testing.T) {
+		runCmd := exec.Command("go", "run", "-exec="+execBin, "dom.go")
+		runCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+		out, err := runCmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("Failed to run dom.go with go-wasm-exec: %v\nOutput:\n%s", err, out)
+		}
+
+		output := string(out)
+		if !strings.Contains(output, "DOM manipulated successfully") {
+			t.Errorf("Expected output to contain 'DOM manipulated successfully', got:\n%s", output)
+		}
+	})
 }
