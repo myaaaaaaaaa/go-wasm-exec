@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -67,12 +66,8 @@ func FindChrome() string {
 
 // ChromeInstallInstructions returns copy-pasteable commands for installing Chromium
 // or Chrome across portable tools and system package managers.
-func ChromeInstallInstructions() string {
-	if chromePath := FindChrome(); chromePath != "" {
-		return "Chromium/Chrome is already installed at: " + chromePath + "\nYou are good to go!\n"
-	}
-
-	return `go-wasm-exec requires Chrome, Chromium, or a compatible headless browser.
+const ChromeInstallInstructions = `
+go-wasm-exec requires Chrome, Chromium, or a compatible headless browser.
 Choose one of the commands below to install Chromium:
 
 Portable & Package-Agnostic Tools (Recommended):
@@ -123,9 +118,3 @@ Environment Variable Override:
   * Windows (PowerShell):
     $env:CHROME_BIN="C:\path\to\chrome.exe"
 `
-}
-
-// PrintInstallInstructions outputs copy-pasteable commands for installing Chromium to stdout.
-func PrintInstallInstructions() {
-	fmt.Print(ChromeInstallInstructions())
-}

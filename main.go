@@ -218,7 +218,7 @@ func RunHTMLInChrome(htmlContent string) int {
 
 	chromeBin := FindChrome()
 	if chromeBin == "" {
-		exitf("Error: Chrome or Chromium executable not found\n")
+		exitf("Error: Chrome or Chromium executable not found\n%s", ChromeInstallInstructions)
 	}
 
 	cmd := exec.Command(chromeBin, args...)
@@ -383,7 +383,11 @@ func main() {
 
 	case "install":
 		// Subcommand: Print one-liners to install Chromium.
-		PrintInstallInstructions()
+		message := ChromeInstallInstructions
+		if chromePath := FindChrome(); chromePath != "" {
+			message = "Chromium/Chrome is already installed at: " + chromePath + "\nYou are good to go!\n"
+		}
+		fmt.Print(message)
 
 	default:
 		// go_js_wasm_exec compatibility mode.
