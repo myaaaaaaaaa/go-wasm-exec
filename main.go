@@ -346,6 +346,7 @@ func main() {
 	if len(os.Args) < 2 {
 		bin := os.Args[0]
 		fmt.Fprintf(os.Stderr, "Usage:\n")
+		fmt.Fprintf(os.Stderr, "  %s install                        - Prints commands to install Chromium\n", bin)
 		fmt.Fprintf(os.Stderr, "  %s bundle <binary.wasm> [args...] - Prints the bundled HTML to stdout\n", bin)
 		fmt.Fprintf(os.Stderr, "  %s run <binary.wasm> [args...]    - Runs the WASM file in headless Chrome\n", bin)
 		fmt.Fprintf(os.Stderr, "  %s <binary.wasm> [args...]        - Runs the WASM file (go_js_wasm_exec compatible)\n", bin)
@@ -379,6 +380,10 @@ func main() {
 		args := os.Args[3:]
 
 		executeWasm(wasmFile, args)
+
+	case "install":
+		// Subcommand: Print one-liners to install Chromium.
+		PrintInstallInstructions()
 
 	default:
 		// go_js_wasm_exec compatibility mode.
