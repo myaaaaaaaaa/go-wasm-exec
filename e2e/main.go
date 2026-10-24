@@ -5,13 +5,17 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "fail" {
-		fmt.Println("Exiting with failure")
-		os.Exit(42)
-	}
 	fmt.Println("Hello, WASM!")
-	fmt.Println("Args:", os.Args)
+
+	sum := 0
+	for _, arg := range os.Args[1:] {
+		if n, err := strconv.Atoi(arg); err == nil {
+			sum += n
+		}
+	}
+	os.Exit(sum)
 }
