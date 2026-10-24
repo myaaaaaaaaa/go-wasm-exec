@@ -23,7 +23,7 @@ func TestE2E(t *testing.T) {
 
 	t.Run("ExitCode", func(t *testing.T) {
 		wasmFile := filepath.Join(tmpDir, "main.wasm")
-		wasmBuild := exec.Command("go", "build", "-o", wasmFile, "main.go")
+		wasmBuild := exec.Command("go", "build", "-o", wasmFile, "exitcode.go")
 		wasmBuild.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 		if err := wasmBuild.Run(); err != nil {
 			t.Fatalf("Failed to build test wasm: %v", err)
