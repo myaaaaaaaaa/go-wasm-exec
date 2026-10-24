@@ -45,37 +45,27 @@ console.log = (...args) => {
 const wasmBase64 = "{{.WasmBase64}}";
 const bytes = Uint8Array.fromBase64(wasmBase64);
 
+const exitSentinelPrefix = "{{.ExitSentinelPrefix}}";
+
+let exitCode = 0;
+
 const go = new Go();
 go.argv = {{.ArgsJSON}};
-
-const exitSentinelPrefix = "{{.ExitSentinelPrefix}}";
-let exited = false;
-const handleExit = (code) => {
-	if (exited) return;
-	console.log(exitSentinelPrefix + (code ?? 0));
-	exited = true;
-
-	const pre = document.createElement("pre");
-	pre.textContent = outputBuffer.join("\n");
-	document.body.appendChild(pre);
-};
-
-// Map console.log to standard output and exit when process ends
-go.exit = (code) => {
-	if (code !== 0) {
-		console.error("exit code:", code);
-	}
-	handleExit(code);
-};
+go.exit = (code) => { exitCode = code };
 
 try {
 	const result = await WebAssembly.instantiate(bytes.buffer, go.importObject);
 	await go.run(result.instance);
-	handleExit(0);
 } catch (err) {
 	console.error(err);
-	handleExit(1);
+	exitCode = 1;
 }
+
+console.log(exitSentinelPrefix + exitCode);
+
+const pre = document.createElement("pre");
+pre.textContent = outputBuffer.join("\n");
+document.body.appendChild(pre);
 
 `
 
