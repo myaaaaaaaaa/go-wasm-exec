@@ -67,5 +67,6 @@ func FindChrome() string {
 
 // ChromeInstallInstructions returns copy-pasteable commands for installing Chromium
 // or Chrome across portable tools and system package managers.
+//
 //go:embed howto_install_chrome.txt
 var ChromeInstallInstructions string
