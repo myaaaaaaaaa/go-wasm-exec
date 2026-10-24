@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -61,6 +62,82 @@ func TestBundleWasmToHTML(t *testing.T) {
 			if !strings.Contains(html, arg) {
 				t.Fatalf("expected bundled HTML to contain argument %q", arg)
 			}
+		}
+	})
+}
+
+func TestParseBundleArgs(t *testing.T) {
+	dummyContent := []byte("\x00asm\x01\x00\x00\x00")
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "test.wasm")
+	if err := os.WriteFile(wasmFile, dummyContent, 0644); err != nil {
+		t.Fatalf("failed to create dummy wasm file: %v", err)
+	}
+
+	htmlContent := "<html><body>custom</body></html>"
+	htmlFile := filepath.Join(tmpDir, "custom.html")
+	if err := os.WriteFile(htmlFile, []byte(htmlContent), 0644); err != nil {
+		t.Fatalf("failed to create custom html file: %v", err)
+	}
+
+	t.Run("single wasm file", func(t *testing.T) {
+		wasm, tmpl, args := parseBundleArgs([]string{wasmFile})
+		if wasm != wasmFile {
+			t.Errorf("got wasmFile %q, want %q", wasm, wasmFile)
+		}
+		if tmpl != defaultHTMLTemplate {
+			t.Errorf("got template %q, want default template", tmpl)
+		}
+		if len(args) != 0 {
+			t.Errorf("got args %v, want empty", args)
+		}
+	})
+
+	t.Run("wasm file and html template", func(t *testing.T) {
+		wasm, tmpl, args := parseBundleArgs([]string{wasmFile, htmlFile})
+		if wasm != wasmFile {
+			t.Errorf("got wasmFile %q, want %q", wasm, wasmFile)
+		}
+		if tmpl != htmlContent {
+			t.Errorf("got template %q, want %q", tmpl, htmlContent)
+		}
+		if len(args) != 0 {
+			t.Errorf("got args %v, want empty", args)
+		}
+	})
+
+	t.Run("html template and wasm file reversed", func(t *testing.T) {
+		wasm, tmpl, args := parseBundleArgs([]string{htmlFile, wasmFile})
+		if wasm != wasmFile {
+			t.Errorf("got wasmFile %q, want %q", wasm, wasmFile)
+		}
+		if tmpl != htmlContent {
+			t.Errorf("got template %q, want %q", tmpl, htmlContent)
+		}
+		if len(args) != 0 {
+			t.Errorf("got args %v, want empty", args)
+		}
+	})
+
+	t.Run("with args", func(t *testing.T) {
+		extraArgs := []string{"--foo", "bar"}
+		bundleArgs := append([]string{wasmFile, htmlFile}, extraArgs...)
+		wasm, tmpl, args := parseBundleArgs(bundleArgs)
+		if wasm != wasmFile {
+			t.Errorf("got wasmFile %q, want %q", wasm, wasmFile)
+		}
+		if tmpl != htmlContent {
+			t.Errorf("got template %q, want %q", tmpl, htmlContent)
+		}
+		if !slices.Equal(args, extraArgs) {
+			t.Errorf("got args %v, want %v", args, extraArgs)
+		}
+	})
+
+	t.Run("nested into BundleWasmToHTML", func(t *testing.T) {
+		html := BundleWasmToHTML(parseBundleArgs([]string{wasmFile}))
+		if !strings.Contains(html, "test.wasm") {
+			t.Fatalf("expected bundled HTML to contain filename 'test.wasm'")
 		}
 	})
 }

@@ -354,6 +354,45 @@ func isWasm(path string) bool {
 	return string(buf[:]) == "\x00asm"
 }
 
+func parseBundleArgs(bundleArgs []string) (wasmFile, htmlTemplate string, args []string) {
+	htmlTemplate = defaultHTMLTemplate
+
+	switch len(bundleArgs) {
+	case 0:
+		exitf("Usage: %s bundle <binary.wasm> [template.html] [args...]\n", os.Args[0])
+	case 1:
+		wasmFile = bundleArgs[0]
+		if !isWasm(wasmFile) {
+			exitf("Error: %s is not a WASM file (missing magic header)\n", wasmFile)
+		}
+	default:
+		arg1 := bundleArgs[0]
+		arg2 := bundleArgs[1]
+
+		var htmlFile string
+		switch {
+		case isWasm(arg1):
+			wasmFile = arg1
+			htmlFile = arg2
+		case isWasm(arg2):
+			wasmFile = arg2
+			htmlFile = arg1
+		default:
+			exitf("Error: neither %s nor %s are a WASM file (missing magic header)\n", arg1, arg2)
+		}
+
+		b, err := os.ReadFile(htmlFile)
+		if err != nil {
+			exitf("Error reading HTML template: %v\n", err)
+		}
+		htmlTemplate = string(b)
+
+		args = bundleArgs[2:]
+	}
+
+	return wasmFile, htmlTemplate, args
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		bin := os.Args[0]
@@ -370,43 +409,7 @@ func main() {
 	switch command {
 	case "bundle":
 		// Subcommand: Print the bundled HTML to stdout instead of running it.
-		bundleArgs := os.Args[2:]
-		var wasmFile string
-		var htmlFile string
-		htmlTemplate := defaultHTMLTemplate
-		var args []string
-
-		if len(bundleArgs) == 0 {
-			exitf("Usage: %s bundle <binary.wasm> [template.html] [args...]\n", os.Args[0])
-		} else if len(bundleArgs) == 1 {
-			wasmFile = bundleArgs[0]
-			if !isWasm(wasmFile) {
-				exitf("Error: %s is not a WASM file (missing magic header)\n", wasmFile)
-			}
-		} else {
-			arg1 := bundleArgs[0]
-			arg2 := bundleArgs[1]
-
-			if isWasm(arg1) {
-				wasmFile = arg1
-				htmlFile = arg2
-			} else if isWasm(arg2) {
-				wasmFile = arg2
-				htmlFile = arg1
-			} else {
-				exitf("Error: neither %s nor %s are a WASM file (missing magic header)\n", arg1, arg2)
-			}
-
-			b, err := os.ReadFile(htmlFile)
-			if err != nil {
-				exitf("Error reading HTML template: %v\n", err)
-			}
-			htmlTemplate = string(b)
-
-			args = bundleArgs[2:]
-		}
-
-		html := BundleWasmToHTML(wasmFile, htmlTemplate, args)
+		html := BundleWasmToHTML(parseBundleArgs(os.Args[2:]))
 
 		// Print directly to stdout
 		fmt.Println(html)
