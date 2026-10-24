@@ -30,7 +30,7 @@ func exitf(format string, args ...any) {
 const exitSentinelPrefix = "__GO_WASM_EXIT__:"
 
 //go:embed default.html
-var htmlTemplate string
+var defaultHTMLTemplate string
 
 const jsTemplate = `
 const outputBuffer = [];
@@ -72,7 +72,7 @@ document.body.appendChild(pre);
 // BundleWasmToHTML takes a path to a WASM file and any runtime arguments,
 // generating a self-contained HTML string that runs the WASM bundle.
 // If an error occurs, it logs to stderr and exits via exitf.
-func BundleWasmToHTML(wasmFilePath string, wasmArgs []string) string {
+func BundleWasmToHTML(wasmFilePath string, htmlTemplate string, wasmArgs []string) string {
 	wasmBytes, err := os.ReadFile(wasmFilePath)
 	if err != nil {
 		exitf("Error reading %s: %v\n", wasmFilePath, err)
@@ -334,7 +334,7 @@ func RunHTMLInChrome(htmlContent string) int {
 
 // executeWasm is a helper to combine the bundling and execution phases.
 func executeWasm(wasmFile string, args []string) {
-	html := BundleWasmToHTML(wasmFile, args)
+	html := BundleWasmToHTML(wasmFile, defaultHTMLTemplate, args)
 	code := RunHTMLInChrome(html)
 	os.Exit(code)
 }
@@ -362,7 +362,7 @@ func main() {
 		wasmFile := os.Args[2]
 		args := os.Args[3:]
 
-		html := BundleWasmToHTML(wasmFile, args)
+		html := BundleWasmToHTML(wasmFile, defaultHTMLTemplate, args)
 
 		// Print directly to stdout
 		fmt.Println(html)

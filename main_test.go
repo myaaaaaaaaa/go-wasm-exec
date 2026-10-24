@@ -12,7 +12,7 @@ import (
 
 func checkBundleWasmToHTML(t *testing.T, wasmFilePath string, wasmArgs []string) string {
 	t.Helper()
-	html := BundleWasmToHTML(wasmFilePath, wasmArgs)
+	html := BundleWasmToHTML(wasmFilePath, defaultHTMLTemplate, wasmArgs)
 	if html == "" {
 		t.Fatal("BundleWasmToHTML() returned empty HTML string")
 	}
