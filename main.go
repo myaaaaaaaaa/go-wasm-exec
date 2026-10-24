@@ -346,12 +346,12 @@ func isWasm(path string) bool {
 	}
 	defer f.Close()
 
-	buf := make([]byte, 4)
-	if _, err := f.Read(buf); err != nil {
+	var buf [4]byte
+	if _, err := f.Read(buf[:]); err != nil {
 		return false
 	}
 
-	return string(buf) == "\x00asm"
+	return string(buf[:]) == "\x00asm"
 }
 
 func main() {
@@ -371,16 +371,14 @@ func main() {
 	case "bundle":
 		// Subcommand: Print the bundled HTML to stdout instead of running it.
 		bundleArgs := os.Args[2:]
-		if len(bundleArgs) == 0 {
-			exitf("Usage: %s bundle <binary.wasm> [template.html] [args...]\n", os.Args[0])
-		}
-
 		var wasmFile string
 		var htmlFile string
 		htmlTemplate := defaultHTMLTemplate
 		var args []string
 
-		if len(bundleArgs) == 1 {
+		if len(bundleArgs) == 0 {
+			exitf("Usage: %s bundle <binary.wasm> [template.html] [args...]\n", os.Args[0])
+		} else if len(bundleArgs) == 1 {
 			wasmFile = bundleArgs[0]
 			if !isWasm(wasmFile) {
 				exitf("Error: %s is not a WASM file (missing magic header)\n", wasmFile)
