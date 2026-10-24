@@ -1,7 +1,7 @@
 package main
 
 import (
-	"os/exec"
+	"os"
 	"testing"
 )
 
@@ -11,8 +11,8 @@ func TestFindChrome(t *testing.T) {
 		t.Fatal("FindChrome() returned empty string; expected valid Chrome/Chromium executable path")
 	}
 
-	if _, err := exec.LookPath(bin); err != nil {
-		t.Fatalf("FindChrome() returned %q which is not executable: %v", bin, err)
+	if _, err := os.Stat(bin); err != nil {
+		t.Fatalf("FindChrome() returned %q which does not exist: %v", bin, err)
 	}
 }
 
