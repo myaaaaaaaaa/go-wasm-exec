@@ -339,12 +339,27 @@ func executeWasm(wasmFile string, args []string) {
 	os.Exit(code)
 }
 
+func isWasm(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	var buf [4]byte
+	if _, err := f.Read(buf[:]); err != nil {
+		return false
+	}
+
+	return string(buf[:]) == "\x00asm"
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		bin := os.Args[0]
 		fmt.Fprintf(os.Stderr, "Usage:\n")
 		fmt.Fprintf(os.Stderr, "  %s install                        - Prints commands to install Chromium\n", bin)
-		fmt.Fprintf(os.Stderr, "  %s bundle <binary.wasm> [args...] - Prints the bundled HTML to stdout\n", bin)
+		fmt.Fprintf(os.Stderr, "  %s bundle <binary.wasm> [template.html] [args...] - Prints the bundled HTML to stdout\n", bin)
 		fmt.Fprintf(os.Stderr, "  %s run <binary.wasm> [args...]    - Runs the WASM file in headless Chrome\n", bin)
 		fmt.Fprintf(os.Stderr, "  %s <binary.wasm> [args...]        - Runs the WASM file (go_js_wasm_exec compatible)\n", bin)
 		os.Exit(1)
@@ -355,14 +370,43 @@ func main() {
 	switch command {
 	case "bundle":
 		// Subcommand: Print the bundled HTML to stdout instead of running it.
-		if len(os.Args) < 3 {
-			exitf("Usage: %s bundle <binary.wasm> [args...]\n", os.Args[0])
+		bundleArgs := os.Args[2:]
+		var wasmFile string
+		var htmlFile string
+		htmlTemplate := defaultHTMLTemplate
+		var args []string
+
+		if len(bundleArgs) == 0 {
+			exitf("Usage: %s bundle <binary.wasm> [template.html] [args...]\n", os.Args[0])
+		} else if len(bundleArgs) == 1 {
+			wasmFile = bundleArgs[0]
+			if !isWasm(wasmFile) {
+				exitf("Error: %s is not a WASM file (missing magic header)\n", wasmFile)
+			}
+		} else {
+			arg1 := bundleArgs[0]
+			arg2 := bundleArgs[1]
+
+			if isWasm(arg1) {
+				wasmFile = arg1
+				htmlFile = arg2
+			} else if isWasm(arg2) {
+				wasmFile = arg2
+				htmlFile = arg1
+			} else {
+				exitf("Error: neither %s nor %s are a WASM file (missing magic header)\n", arg1, arg2)
+			}
+
+			b, err := os.ReadFile(htmlFile)
+			if err != nil {
+				exitf("Error reading HTML template: %v\n", err)
+			}
+			htmlTemplate = string(b)
+
+			args = bundleArgs[2:]
 		}
 
-		wasmFile := os.Args[2]
-		args := os.Args[3:]
-
-		html := BundleWasmToHTML(wasmFile, defaultHTMLTemplate, args)
+		html := BundleWasmToHTML(wasmFile, htmlTemplate, args)
 
 		// Print directly to stdout
 		fmt.Println(html)
