@@ -21,6 +21,18 @@ import (
 	"github.com/coder/websocket/wsjson"
 )
 
+func getWasmTempDir() string {
+	baseDir := os.Getenv("XDG_RUNTIME_DIR")
+	if baseDir == "" {
+		baseDir = os.TempDir()
+	}
+	wasmDir := filepath.Join(baseDir, "wasm")
+	if err := os.MkdirAll(wasmDir, 0755); err != nil {
+		exitf("Error creating wasm temp directory: %v\n", err)
+	}
+	return wasmDir
+}
+
 // exitf prints a formatted string to stderr and exits with status 1.
 func exitf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, format, args...)
@@ -166,7 +178,9 @@ func sendCDP(ctx context.Context, c *websocket.Conn, id int, method string, para
 // headless Chrome, and pipes the console/websocket output to stdout.
 // If an error occurs, it logs to stderr and exits via exitf.
 func RunHTMLInChrome(htmlContent string) int {
-	tmpFile, err := os.CreateTemp("", "htmleval-*.html")
+	wasmTempDir := getWasmTempDir()
+
+	tmpFile, err := os.CreateTemp(wasmTempDir, "htmleval-*.html")
 	if err != nil {
 		exitf("Error creating temp file: %v\n", err)
 	}
@@ -177,7 +191,7 @@ func RunHTMLInChrome(htmlContent string) int {
 	}
 	tmpFile.Close()
 
-	userDataDir, err := os.MkdirTemp(os.Getenv("XDG_RUNTIME_DIR"), "htmleval-user-data-*")
+	userDataDir, err := os.MkdirTemp(wasmTempDir, "htmleval-user-data-*")
 	if err != nil {
 		exitf("Error creating user data dir: %v\n", err)
 	}
@@ -220,6 +234,7 @@ func RunHTMLInChrome(htmlContent string) int {
 	}
 
 	cmd := exec.Command(chromeBin, args...)
+	cmd.Env = append(os.Environ(), "TMPDIR="+wasmTempDir, "TMP="+wasmTempDir, "TEMP="+wasmTempDir)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		exitf("Error piping stderr: %v\n", err)
