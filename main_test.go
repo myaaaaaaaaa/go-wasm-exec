@@ -170,7 +170,16 @@ func TestInstallGoJsWasmExec(t *testing.T) {
 		t.Fatalf("failed to stat installed file: %v", err)
 	}
 
-	if info.Mode().Perm()&0111 == 0 {
-		t.Errorf("expected %s to be executable, got mode %v", dest, info.Mode().Perm())
+	dummyDest := filepath.Join(tmpDir, "dummy_exec")
+	if err := os.WriteFile(dummyDest, []byte(""), 0755); err != nil {
+		t.Fatalf("failed to write dummy exec file: %v", err)
+	}
+	dummyInfo, err := os.Stat(dummyDest)
+	if err != nil {
+		t.Fatalf("failed to stat dummy exec file: %v", err)
+	}
+
+	if info.Mode().Perm() != dummyInfo.Mode().Perm() {
+		t.Errorf("expected %s to have permissions %v, got %v", dest, dummyInfo.Mode().Perm(), info.Mode().Perm())
 	}
 }
