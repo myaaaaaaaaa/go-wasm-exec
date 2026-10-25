@@ -47,6 +47,13 @@ func TestE2E(t *testing.T) {
 		if !strings.Contains(output, "Hello, WASM!") {
 			t.Errorf("Expected output to contain 'Hello, WASM!', got:\n%s", output)
 		}
+
+		nativeRunCmd := exec.Command("go", "run", "exitcode.go", "flag1", "flag2", "40", "2")
+		nativeOut, _ := nativeRunCmd.Output()
+
+		if string(nativeOut) != string(out) {
+			t.Errorf("Expected identical output from native and WASM go run, got:\nNative:\n%s\nWASM:\n%s", nativeOut, out)
+		}
 	})
 
 	t.Run("DOM", func(t *testing.T) {
