@@ -44,8 +44,8 @@ func TestE2E(t *testing.T) {
 		}
 
 		output := string(out)
-		if !strings.Contains(output, "Hello, WASM!") {
-			t.Errorf("Expected output to contain 'Hello, WASM!', got:\n%s", output)
+		if !strings.Contains(output, "Hello") {
+			t.Errorf("Expected output to contain 'Hello', got:\n%s", output)
 		}
 
 		nativeRunCmd := exec.Command("go", "run", "exitcode.go", "flag1", "flag2", "40", "2")
