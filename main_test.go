@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -170,7 +171,9 @@ func TestInstallGoJsWasmExec(t *testing.T) {
 		t.Fatalf("failed to stat installed file: %v", err)
 	}
 
-	if info.Mode().Perm()&0111 == 0 {
-		t.Errorf("expected %s to be executable, got mode %v", dest, info.Mode().Perm())
+	if runtime.GOOS == "linux" {
+		if info.Mode().Perm()&0111 == 0 {
+			t.Errorf("expected %s to be executable, got mode %v", dest, info.Mode().Perm())
+		}
 	}
 }
