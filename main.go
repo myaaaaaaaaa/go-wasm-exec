@@ -32,6 +32,9 @@ const exitSentinelPrefix = "__GO_WASM_EXIT__:"
 //go:embed default.html
 var defaultHTMLTemplate string
 
+//go:embed deno_wasm_exec.js
+var denoWasmExecJS string
+
 const jsTemplate = `
 const outputBuffer = [];
 const origLog = console.log;
@@ -393,11 +396,50 @@ func parseBundleArgs(bundleArgs []string) (wasmFile, htmlTemplate string, args [
 	return wasmFile, htmlTemplate, args
 }
 
+// getGobin returns the GOBIN path, falling back to GOPATH/bin if unset.
+func getGobin() (string, error) {
+	if gobin := os.Getenv("GOBIN"); gobin != "" {
+		return gobin, nil
+	}
+	out, err := exec.Command("go", "env", "GOBIN").Output()
+	if err == nil {
+		if gobin := strings.TrimSpace(string(out)); gobin != "" {
+			return gobin, nil
+		}
+	}
+	out, err = exec.Command("go", "env", "GOPATH").Output()
+	if err == nil {
+		if gopath := strings.TrimSpace(string(out)); gopath != "" {
+			paths := filepath.SplitList(gopath)
+			if len(paths) > 0 && paths[0] != "" {
+				return filepath.Join(paths[0], "bin"), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("could not determine GOBIN")
+}
+
+// installGoJsWasmExec writes deno_wasm_exec.js into GOBIN as go_js_wasm_exec.
+func installGoJsWasmExec() (string, error) {
+	gobin, err := getGobin()
+	if err != nil {
+		return "", fmt.Errorf("determining GOBIN: %w", err)
+	}
+	if err := os.MkdirAll(gobin, 0755); err != nil {
+		return "", fmt.Errorf("creating GOBIN directory: %w", err)
+	}
+	dest := filepath.Join(gobin, "go_js_wasm_exec")
+	if err := os.WriteFile(dest, []byte(denoWasmExecJS), 0755); err != nil {
+		return "", fmt.Errorf("writing %s: %w", dest, err)
+	}
+	return dest, nil
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		bin := os.Args[0]
 		fmt.Fprintf(os.Stderr, "Usage:\n")
-		fmt.Fprintf(os.Stderr, "  %s install                        - Prints commands to install Chromium\n", bin)
+		fmt.Fprintf(os.Stderr, "  %s install                        - Installs utilities and dependencies\n", bin)
 		fmt.Fprintf(os.Stderr, "  %s bundle <binary.wasm> [template.html] [args...] - Prints the bundled HTML to stdout\n", bin)
 		fmt.Fprintf(os.Stderr, "  %s run <binary.wasm> [args...]    - Runs the WASM file in headless Chrome\n", bin)
 		fmt.Fprintf(os.Stderr, "  %s <binary.wasm> [args...]        - Runs the WASM file (go_js_wasm_exec compatible)\n", bin)
@@ -426,7 +468,13 @@ func main() {
 		executeWasm(wasmFile, args)
 
 	case "install":
-		// Subcommand: Print one-liners to install Chromium.
+		// Subcommand: Install utilities and dependencies.
+		dest, err := installGoJsWasmExec()
+		if err != nil {
+			exitf("Error installing go_js_wasm_exec: %v\n", err)
+		}
+		fmt.Printf("Installed go_js_wasm_exec to: %s\n", dest)
+
 		message := ChromeInstallInstructions
 		if chromePath := FindChrome(); chromePath != "" {
 			message = "Chromium/Chrome is already installed at: " + chromePath + "\nYou are good to go!\n"

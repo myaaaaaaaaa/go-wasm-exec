@@ -141,3 +141,36 @@ func TestParseBundleArgs(t *testing.T) {
 		}
 	})
 }
+
+func TestInstallGoJsWasmExec(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("GOBIN", tmpDir)
+
+	dest, err := installGoJsWasmExec()
+	if err != nil {
+		t.Fatalf("installGoJsWasmExec() failed: %v", err)
+	}
+
+	expectedDest := filepath.Join(tmpDir, "go_js_wasm_exec")
+	if dest != expectedDest {
+		t.Errorf("got %q, want %q", dest, expectedDest)
+	}
+
+	content, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("failed to read installed file: %v", err)
+	}
+
+	if string(content) != denoWasmExecJS {
+		t.Errorf("installed content does not match denoWasmExecJS")
+	}
+
+	info, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("failed to stat installed file: %v", err)
+	}
+
+	if info.Mode().Perm()&0111 == 0 {
+		t.Errorf("expected %s to be executable, got mode %v", dest, info.Mode().Perm())
+	}
+}
