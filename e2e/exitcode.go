@@ -11,6 +11,8 @@ import (
 func main() {
 	fmt.Println("Hello, WASM!")
 
+	fmt.Print("\n\n\n")
+
 	sum := 0
 	for _, arg := range os.Args[1:] {
 		fmt.Println("Flag:", arg)

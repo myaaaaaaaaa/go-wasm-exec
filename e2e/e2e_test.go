@@ -46,9 +46,8 @@ func TestE2E(t *testing.T) {
 				t.Errorf("Expected exit code 42, got: %d", exitErr.ExitCode())
 			}
 
-			output := string(out)
-			if !strings.Contains(output, "Hello") {
-				t.Errorf("Expected output to contain 'Hello', got:\n%s", output)
+			if !strings.Contains(string(out), "Hello") {
+				t.Errorf("Expected output to contain 'Hello', got:\n%s", out)
 			}
 
 			if string(nativeOut) != string(out) {
