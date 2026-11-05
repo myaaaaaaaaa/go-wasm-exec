@@ -29,31 +29,35 @@ func TestE2E(t *testing.T) {
 			t.Fatalf("Failed to build test wasm: %v", err)
 		}
 
-		runCmd := exec.Command(execBin, wasmFile, "flag1", "flag2", "40", "2")
-		out, err := runCmd.CombinedOutput()
-		if err == nil {
-			t.Fatalf("Expected command to fail, but succeeded with output:\n%s", out)
+		nativeOut, _ := exec.Command("go", "run", "exitcode.go", "flag1", "flag2", "40", "2").Output()
+
+		testExec := func(t *testing.T, cmd string) {
+			runCmd := exec.Command(cmd, wasmFile, "flag1", "flag2", "40", "2")
+			out, err := runCmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("Expected command to fail, but succeeded with output:\n%s", out)
+			}
+
+			var exitErr *exec.ExitError
+			if !errors.As(err, &exitErr) {
+				t.Fatalf("Expected *exec.ExitError, got %T: %v", err, err)
+			}
+			if exitErr.ExitCode() != 42 {
+				t.Errorf("Expected exit code 42, got: %d", exitErr.ExitCode())
+			}
+
+			output := string(out)
+			if !strings.Contains(output, "Hello") {
+				t.Errorf("Expected output to contain 'Hello', got:\n%s", output)
+			}
+
+			if string(nativeOut) != string(out) {
+				t.Errorf("Expected identical output from native and WASM go run, got:\nNative:\n%s\nWASM:\n%s", nativeOut, out)
+			}
 		}
 
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) {
-			t.Fatalf("Expected *exec.ExitError, got %T: %v", err, err)
-		}
-		if exitErr.ExitCode() != 42 {
-			t.Errorf("Expected exit code 42, got: %d", exitErr.ExitCode())
-		}
-
-		output := string(out)
-		if !strings.Contains(output, "Hello") {
-			t.Errorf("Expected output to contain 'Hello', got:\n%s", output)
-		}
-
-		nativeRunCmd := exec.Command("go", "run", "exitcode.go", "flag1", "flag2", "40", "2")
-		nativeOut, _ := nativeRunCmd.Output()
-
-		if string(nativeOut) != string(out) {
-			t.Errorf("Expected identical output from native and WASM go run, got:\nNative:\n%s\nWASM:\n%s", nativeOut, out)
-		}
+		t.Run("Deno", func(t *testing.T) { testExec(t, "../deno_wasm_exec.js") })
+		t.Run("Chromium", func(t *testing.T) { testExec(t, execBin) })
 	})
 
 	t.Run("DOM", func(t *testing.T) {
