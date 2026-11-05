@@ -9,6 +9,7 @@ await import(`file://${wasmExecPath}`);
 const go = new globalThis.Go();
 go.argv = Deno.args;
 go.env = Object.assign({ TMPDIR: Deno.env.get("TMPDIR") || "/tmp" }, Deno.env.toObject());
+console.log(go.env);
 go.exit = Deno.exit;
 
 const wasmBytes = await Deno.readFile(Deno.args[0]);
