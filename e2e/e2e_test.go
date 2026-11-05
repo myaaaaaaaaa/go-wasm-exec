@@ -31,8 +31,9 @@ func TestE2E(t *testing.T) {
 
 		nativeOut, _ := exec.Command("go", "run", "exitcode.go", "flag1", "flag2", "40", "2").Output()
 
-		testExec := func(t *testing.T, cmd string) {
-			runCmd := exec.Command(cmd, wasmFile, "flag1", "flag2", "40", "2")
+		testExec := func(t *testing.T, cmd ...string) {
+			cmd = append(cmd, wasmFile, "flag1", "flag2", "40", "2")
+			runCmd := exec.Command(cmd[0], cmd[1:]...)
 			out, err := runCmd.CombinedOutput()
 			if err == nil {
 				t.Fatalf("Expected command to fail, but succeeded with output:\n%s", out)
@@ -55,7 +56,7 @@ func TestE2E(t *testing.T) {
 			}
 		}
 
-		t.Run("Deno", func(t *testing.T) { testExec(t, "../deno_wasm_exec.js") })
+		t.Run("Deno", func(t *testing.T) { testExec(t, "deno", "run", "-A", "../deno_wasm_exec.js") })
 		t.Run("Chromium", func(t *testing.T) { testExec(t, execBin) })
 	})
 
