@@ -458,15 +458,19 @@ func installGoJsWasmExec() (string, error) {
 	return dest, nil
 }
 
+func help() {
+	bin := os.Args[0]
+	fmt.Fprintf(os.Stderr, "Usage:\n")
+	//fmt.Fprintf(os.Stderr, "  %s install                        - Installs utilities and dependencies\n", bin)
+	fmt.Fprintf(os.Stderr, "  %s bundle <binary.wasm> [template.html] [args...] - Prints the bundled HTML to stdout\n", bin)
+	fmt.Fprintf(os.Stderr, "  %s run <binary.wasm> [args...]    - Runs the WASM file in headless Chrome\n", bin)
+	fmt.Fprintf(os.Stderr, "  %s <binary.wasm> [args...]        - Runs the WASM file (go_js_wasm_exec compatible)\n", bin)
+	os.Exit(1)
+}
+
 func main() {
 	if len(os.Args) < 2 {
-		bin := os.Args[0]
-		fmt.Fprintf(os.Stderr, "Usage:\n")
-		fmt.Fprintf(os.Stderr, "  %s install                        - Installs utilities and dependencies\n", bin)
-		fmt.Fprintf(os.Stderr, "  %s bundle <binary.wasm> [template.html] [args...] - Prints the bundled HTML to stdout\n", bin)
-		fmt.Fprintf(os.Stderr, "  %s run <binary.wasm> [args...]    - Runs the WASM file in headless Chrome\n", bin)
-		fmt.Fprintf(os.Stderr, "  %s <binary.wasm> [args...]        - Runs the WASM file (go_js_wasm_exec compatible)\n", bin)
-		os.Exit(1)
+		help()
 	}
 
 	command := os.Args[1]
@@ -519,6 +523,11 @@ func main() {
 		wasmFile := os.Args[1]
 		args := os.Args[2:]
 
-		executeWasm(wasmFile, args)
+		if isWasm(wasmFile) {
+			executeWasm(wasmFile, args)
+		} else {
+			fmt.Fprintln(os.Stderr, wasmFile, "does not appear to be a valid WASM file")
+			help()
+		}
 	}
 }
