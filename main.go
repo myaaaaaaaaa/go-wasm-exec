@@ -490,9 +490,17 @@ func main() {
 		}
 		fmt.Printf("Installed go_js_wasm_exec to: %s\n", dest)
 
+		if found, err := exec.LookPath("deno"); err == nil {
+			fmt.Println("Deno is installed at:", found)
+			fmt.Println("You are good to go!")
+		} else {
+			fmt.Println("Deno does not appear to be installed. For setup instructions, visit:")
+			fmt.Println("https://deno.com/agents.md")
+		}
+
 		message := ChromeInstallInstructions
 		if chromePath := FindChrome(); chromePath != "" {
-			message = "Chromium/Chrome is already installed at: " + chromePath + "\nYou are good to go!\n"
+			message = "Chromium/Chrome is installed at: " + chromePath + "\nYou are good to go!\n"
 		}
 		fmt.Print(message)
 
