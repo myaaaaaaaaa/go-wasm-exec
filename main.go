@@ -201,6 +201,14 @@ func RunHTMLInChrome(htmlContent string) int {
 		"--no-first-run",
 		"--no-default-browser-check",
 		"--headless",
+	}
+
+	if os.Getenv("ANTIGRAVITY_AGENT") == "1" {
+		fmt.Fprintln(os.Stderr, "Warning: Turning off sandbox")
+		args = append(args, "--no-sandbox")
+	}
+
+	args = append(args,
 		"--disable-background-networking",
 		"--enable-features=NetworkService,NetworkServiceInProcess",
 		"--disable-background-timer-throttling",
@@ -224,9 +232,9 @@ func RunHTMLInChrome(htmlContent string) int {
 		"--password-store=basic",
 		"--use-mock-keychain",
 		"--remote-debugging-port=0",
-		"--user-data-dir=" + userDataDir,
+		"--user-data-dir="+userDataDir,
 		"about:blank",
-	}
+	)
 
 	chromeBin := FindChrome()
 	if chromeBin == "" {
