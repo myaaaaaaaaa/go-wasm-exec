@@ -204,7 +204,7 @@ func RunHTMLInChrome(htmlContent string) int {
 	}
 
 	if os.Getenv("ANTIGRAVITY_AGENT") == "1" {
-		fmt.Fprintln(os.Stderr, "Warning: Turning off sandbox")
+		fmt.Fprintln(os.Stderr, "Warning: Running Chrome with --no-sandbox")
 		args = append(args, "--no-sandbox")
 	}
 
